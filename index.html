@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minecraft Server Information</title>
+    <style>
+        /* Global styles for the page */
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            /* Dark background color */
+            color: #ddd;
+            /* Light text color */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+        }
+
+        /* Styling for the container */
+        .container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            grid-gap: 10px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background-color: #333;
+            padding: 20px;
+            max-width: 650px;
+            margin: 0 auto;
+            align-items: flex-start;
+        }
+
+        /* Styling for server information and player list */
+        #serverInfo,
+        #playerListContainer {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin: 0 auto;
+        }
+
+        #serverInfo h1,
+        #playerListContainer h1 {
+            margin-bottom: 10px;
+        }
+
+        .player-list {
+            list-style-type: none;
+            padding: 0;
+        }
+
+        /* Styling for player list items */
+        .player-list-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10;
+            height: 40px;
+        }
+
+        .player-list-item img {
+            vertical-align: middle;
+            margin-right: 8px;
+            width: 32px;
+            height: 32px;
+        }
+
+        /* Styling for online and offline statuses */
+        .online {
+            color: #4caf50;
+            /* Green color for online status */
+        }
+
+        .offline {
+            color: #f44336;
+            /* Red color for offline status */
+        }
+
+        /* Styling for the MOTD value */
+        .motd-value {
+            white-space: pre-line;
+            line-height: 1.4;
+        }
+
+        /* Styling for server information heading */
+
+        h1,
+        p {
+            margin: 0;
+            /* Remove default margins */
+        }
+
+        .infoItem {
+            display: flex;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .infoLabel {
+            font-weight: bold;
+            min-width: 75px;
+            margin-right: 10px;
+        }
+
+        .infoValue {
+            flex-grow: 1;
+            text-align: left;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Container for server information and player list -->
+    <div class="container">
+        <!-- Server Information section -->
+        <div id="serverInfo">
+            <!-- Server Information heading -->
+            <h1>Server Information</h1>
+            <!-- Container for server details -->
+            <div class="infoItem">
+                <div class="infoLabel"><strong>Server:</strong></div>
+                <div class="infoValue" id="serverName" title=""></div>
+            </div>
+
+            <div class="infoItem">
+                <div class="infoLabel"><strong>MOTD:</strong></div>
+                <div class="infoValue" id="motdValue" class="motd-value"></div>
+            </div>
+
+            <div class="infoItem">
+                <div class="infoLabel"><strong>Version:</strong></div>
+                <div class="infoValue" id="versionValue"></div>
+            </div>
+
+            <div class="infoItem">
+                <div class="infoLabel"><strong>Online:</strong></div>
+                <div class="infoValue" id="onlineValue"></div>
+            </div>
+
+            <div class="infoItem">
+                <div class="infoLabel"><strong>Players:</strong></div>
+                <div class="infoValue" id="playersOnline"></div>
+            </div>
+        </div>
+
+        <!-- Player List section -->
+        <div id="playerListContainer">
+            <!-- Player List heading -->
+            <h1>Player List</h1>
+            <!-- List of players with images and names -->
+            <ul class="player-list" id="playerList"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Set your base URL
+        const baseURL = 'https://api.mcsrvstat.us/3/';
+
+        // Set the port (replace with the desired default port)
+        let port = '';
+        let server = 'rgminecraft.com';
+
+        // Check if a custom port is provided as a query parameter in the URL
+        const queryParams = new URLSearchParams(window.location.search);
+        const customServer = queryParams.get('server');
+        const customPort = queryParams.get('port');
+
+        if (customPort) {
+            // If a custom port is provided, use it
+            port = `:${customPort}`;
+        }
+
+        if (customServer) {
+            server = `${customServer}`;
+        }
+
+        // Construct the final URL
+        const finalURL = baseURL + server + port;
+
+        // Function to fetch and display server information
+        async function getServerInfo() {
+            try {
+                const response = await fetch(finalURL);
+                const data = await response.json();
+
+                const serverName = document.getElementById('serverName');
+                const motdValue = document.getElementById('motdValue');
+                const versionValue = document.getElementById('versionValue');
+                const onlineValue = document.getElementById('onlineValue');
+                const playersOnline = document.getElementById('playersOnline');
+                const playerList = document.getElementById('playerList');
+
+                serverName.textContent = data.hostname;
+                serverName.title = `IP: ${data.ip} Port: ${data.port}`;
+                motdValue.innerHTML = data.motd.html.map(line => `<div>${line}</div>`).join('');
+                versionValue.textContent = data.version;
+                onlineValue.textContent = data.online ? 'Yes' : 'No';
+                onlineValue.className = data.online ? 'online' : 'offline';
+                playersOnline.textContent = `${data.players.online}/${data.players.max}`;
+
+                // Populate player list with images and names
+                playerList.innerHTML = '';
+                data.players.list.forEach(player => {
+                    const playerListItem = document.createElement('li');
+                    playerListItem.className = 'player-list-item';
+
+                    const playerImage = document.createElement('img');
+                    playerImage.src = `https://minotar.net/helm/${player.uuid}/32.png`;
+                    playerImage.width = 32;
+                    playerImage.height = 32;
+
+                    const playerName = document.createElement('span');
+                    playerName.textContent = player.name;
+                    playerName.style.cursor = 'pointer';
+
+                    playerListItem.appendChild(playerImage);
+                    playerListItem.appendChild(playerName);
+                    playerList.appendChild(playerListItem);
+
+                    playerName.title = player.uuid;
+                });
+            } catch (error) {
+                console.error('Error fetching server information:', error);
+            }
+        }
+
+        // Call getServerInfo function when the page loads
+        window.onload = getServerInfo;
+
+        // Refresh server information every 90 seconds
+        setInterval(getServerInfo, 90000); // 90 seconds = 90000 milliseconds
+    </script>
+</body>
+
+</html>
