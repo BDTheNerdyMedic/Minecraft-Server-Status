@@ -19,21 +19,33 @@
             height: 100vh;
         }
 
-        /* Styling for the container */
         .container {
             display: grid;
             grid-template-columns: 2fr 1fr;
-            grid-gap: 10px;
+            grid-gap: 20px;
             border: 2px solid #ddd;
             border-radius: 10px;
             background-color: #333;
-            padding: 20px;
+            padding: 30px;
             max-width: 650px;
             margin: 0 auto;
             align-items: flex-start;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
 
         /* Styling for server information and player list */
+        #serverNameWrapper {
+            display: flex;
+            align-items: center;
+        }
+
+        #serverNameWrapper img {
+            max-width: 32px;
+            max-height: 32px;
+            margin-right: 10px;
+        }
+
         #serverInfo,
         #playerListContainer {
             display: flex;
@@ -45,6 +57,69 @@
         #serverInfo h1,
         #playerListContainer h1 {
             margin-bottom: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            background-color: rgba(255, 255, 255, 0.05);
+            padding: 5px 10px;
+            border-radius: 5px;
+        }
+
+        #copyMessage {
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            display: none;
+            z-index: 1000;
+            white-space: nowrap;
+        }
+
+        #spinnerCircle {
+            position: absolute;
+            top: 70%;
+            left: 50%;
+            transform: translate(-50%, 0);
+            margin: 0;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid #ddd;
+            z-index: 1000;
+            display: block;
+            transition: background 0.3s ease;
+        }
+
+        #spinnerCircle.loading,
+        #spinnerCircle.filling {
+            background: conic-gradient(#3498db 0deg, #3498db 0deg, transparent 0deg);
+        }
+
+        #spinnerCircle.loading::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            border-radius: 50%;
+            background: conic-gradient(#4CAF50, #F44336, #2196F3, #4CAF50);
+            animation: spinRing 2s linear infinite;
+            z-index: -1;
+            background-size: 100% 100%;
+        }
+
+        @keyframes spinRing {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .player-list {
@@ -56,8 +131,17 @@
         .player-list-item {
             display: flex;
             align-items: center;
-            margin-bottom: 10;
+            margin-bottom: 10px;
             height: 40px;
+            transition: background-color 0.3s ease;
+        }
+
+        .player-list-item:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .player-list-item span {
+            cursor: pointer;
         }
 
         .player-list-item img {
@@ -70,18 +154,17 @@
         /* Styling for online and offline statuses */
         .online {
             color: #4caf50;
-            /* Green color for online status */
         }
 
         .offline {
             color: #f44336;
-            /* Red color for offline status */
+            font-weight: bold;
         }
 
-        /* Styling for the MOTD value */
         .motd-value {
             white-space: pre-line;
-            line-height: 1.4;
+            line-height: 1.2;
+            font-size: 0.9rem;
         }
 
         /* Styling for server information heading */
@@ -89,7 +172,6 @@
         h1,
         p {
             margin: 0;
-            /* Remove default margins */
         }
 
         .infoItem {
@@ -102,6 +184,7 @@
             font-weight: bold;
             min-width: 75px;
             margin-right: 10px;
+            color: #bbb;
         }
 
         .infoValue {
@@ -115,18 +198,19 @@
     <!-- Container for server information and player list -->
     <div class="container">
         <!-- Server Information section -->
-        <div id="serverInfo">
-            <!-- Server Information heading -->
+        <section id="serverInfo" aria-label="Server Information">
             <h1>Server Information</h1>
             <!-- Container for server details -->
             <div class="infoItem">
                 <div class="infoLabel"><strong>Server:</strong></div>
-                <div class="infoValue" id="serverName" title=""></div>
+                <div class="infoValue" id="serverNameWrapper">
+                    <span id="serverName" title=""></span>
+                </div>
             </div>
 
             <div class="infoItem">
                 <div class="infoLabel"><strong>MOTD:</strong></div>
-                <div class="infoValue" id="motdValue" class="motd-value"></div>
+                <div class="infoValue motd-value" id="motdValue"></div>
             </div>
 
             <div class="infoItem">
@@ -143,73 +227,81 @@
                 <div class="infoLabel"><strong>Players:</strong></div>
                 <div class="infoValue" id="playersOnline"></div>
             </div>
-        </div>
+        </section>
 
         <!-- Player List section -->
-        <div id="playerListContainer">
-            <!-- Player List heading -->
+        <section id="playerListContainer" aria-label="Player List">
             <h1>Player List</h1>
             <!-- List of players with images and names -->
             <ul class="player-list" id="playerList"></ul>
-        </div>
+        </section>
+        <div id="copyMessage">Server address and port copied to clipboard!</div>
+        <div id="spinnerCircle" title="Time until next update"></div>
     </div>
 
-    <script>
-        // Set your base URL
-        const baseURL = 'https://api.mcsrvstat.us/3/';
 
-        // Set the port (replace with the desired default port)
-        let port = '';
-        let server = 'rgminecraft.com';
+    <script>
+        const API_CONFIG = {
+            baseURL: 'https://api.mcsrvstat.us/3/',
+            defaultServer: 'rgminecraft.com',
+            defaultPort: '25565'
+        };
+        let { baseURL, defaultServer, defaultPort } = API_CONFIG;
+
+        const ANIMATION_CONFIG = {
+            loading: {
+                duration: 2000,
+                segmentDuration: 50
+            },
+            filling: {
+                duration: 90000,
+                segmentDuration: 5000
+            }
+        };
+
+        let spinnerCircle = document.getElementById('spinnerCircle');
 
         // Check if a custom port is provided as a query parameter in the URL
         const queryParams = new URLSearchParams(window.location.search);
-        const customServer = queryParams.get('server');
-        const customPort = queryParams.get('port');
 
-        if (customPort) {
-            // If a custom port is provided, use it
-            port = `:${customPort}`;
+        const customServer = queryParams.get('server') || defaultServer;
+        const customPort = queryParams.get('port') || defaultPort;
+        const finalURL = `${baseURL}${customServer}${customPort ? `:${customPort}` : ''}`;
+
+        let animationTimer = null;
+        let lastData = null;
+
+        function startAnimation(duration, fillElement, segmentDuration) {
+            let segments = duration / segmentDuration;
+            let step = 360 / segments;
+            let currentStep = 0;
+
+            if (animationTimer) clearInterval(animationTimer);
+
+            animationTimer = setInterval(() => {
+                currentStep++;
+                if (currentStep > segments) {
+                    currentStep = 0;
+                }
+                fillElement.style.background = `conic-gradient(#3498db 0deg, #3498db ${currentStep * step}deg, transparent 0deg)`;
+            }, segmentDuration);
+
+            return animationTimer;
         }
 
-        if (customServer) {
-            server = `${customServer}`;
-        }
-
-        // Construct the final URL
-        const finalURL = baseURL + server + port;
-
-        // Function to fetch and display server information
-        async function getServerInfo() {
-            try {
-                const response = await fetch(finalURL);
-                const data = await response.json();
-
-                const serverName = document.getElementById('serverName');
-                const motdValue = document.getElementById('motdValue');
-                const versionValue = document.getElementById('versionValue');
-                const onlineValue = document.getElementById('onlineValue');
-                const playersOnline = document.getElementById('playersOnline');
-                const playerList = document.getElementById('playerList');
-
-                serverName.textContent = data.hostname;
-                serverName.title = `IP: ${data.ip} Port: ${data.port}`;
-                motdValue.innerHTML = data.motd.html.map(line => `<div>${line}</div>`).join('');
-                versionValue.textContent = data.version;
-                onlineValue.textContent = data.online ? 'Yes' : 'No';
-                onlineValue.className = data.online ? 'online' : 'offline';
-                playersOnline.textContent = `${data.players.online}/${data.players.max}`;
-
-                // Populate player list with images and names
-                playerList.innerHTML = '';
+        function populatePlayerList(data) {
+            playerList.innerHTML = '';
+            if (data.players.list && data.players.list.length > 0) {
                 data.players.list.forEach(player => {
                     const playerListItem = document.createElement('li');
                     playerListItem.className = 'player-list-item';
 
                     const playerImage = document.createElement('img');
-                    playerImage.src = `https://minotar.net/helm/${player.uuid}/32.png`;
+                    playerImage.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // 1x1 transparent gif for placeholder
+                    playerImage.dataset.src = `https://minotar.net/helm/${player.uuid}/32.png`; // Store actual source
                     playerImage.width = 32;
                     playerImage.height = 32;
+                    playerImage.loading = 'lazy';
 
                     const playerName = document.createElement('span');
                     playerName.textContent = player.name;
@@ -221,16 +313,201 @@
 
                     playerName.title = player.uuid;
                 });
-            } catch (error) {
-                console.error('Error fetching server information:', error);
+
+                const observer = new IntersectionObserver((entries, observer) => {
+                    entries.forEach(entry => {
+                        if (entry.isIntersecting) {
+                            const img = entry.target;
+                            img.src = img.dataset.src;
+                            observer.unobserve(img);
+                        }
+                    });
+                }, { rootMargin: '50px 0px' });
+
+                document.querySelectorAll('#playerList img').forEach(img => observer.observe(img));
+            } else {
+                playerList.innerHTML = '<li>No players online</li>';
             }
         }
 
-        // Call getServerInfo function when the page loads
+        function formatMOTD(data) {
+            let formattedMOTD = data.motd.html.map(line => `<div>${line}</div>`).join('');
+
+            if (data.motd.clean[0].includes('⚔ Regiment Gaming Community ⚔') && data.motd.clean[1]) {
+                const secondLine = data.motd.html[1];
+                const wrenchIndex = secondLine.indexOf('🔧');
+                if (wrenchIndex !== -1) {
+                    const beforeWrench = secondLine.slice(0, wrenchIndex);
+                    const afterWrench = secondLine.slice(wrenchIndex);
+                    formattedMOTD = `<div>${data.motd.html[0]}</div><div>${beforeWrench}</div><div>${afterWrench}</div>`;
+                }
+            }
+            return formattedMOTD;
+        }
+
+        function setOfflineState() {
+            onlineValue.textContent = 'No';
+            onlineValue.className = 'offline';
+            motdValue.innerHTML = 'Error: Unable to fetch server status';
+            versionValue.textContent = 'Unknown';
+            playersOnline.textContent = 'N/A';
+            playerList.innerHTML = '<li>Error fetching player list</li>';
+            document.getElementById('serverNameWrapper').innerHTML = '<span id="serverName" title="Error loading server details">Error loading server</span>';
+        }
+
+        function objectsEqual(obj1, obj2) {
+            if (typeof obj1 !== 'object' || typeof obj2 !== 'object' || obj1 === null || obj2 === null) {
+                return obj1 === obj2;
+            }
+
+            const keys1 = Object.keys(obj1);
+            const keys2 = Object.keys(obj2);
+
+            if (keys1.length !== keys2.length) return false;
+
+            for (let key of keys1) {
+                if (!objectsEqual(obj1[key], obj2[key])) return false;
+            }
+
+            return true;
+        }
+
+        function isDataChanged(newData, oldData) {
+            if (!oldData) return true;
+
+            if (newData.online !== oldData.online) {
+                console.log('Change detected - online');
+                return true;
+            }
+            if (newData.players.online !== oldData.players.online) {
+                console.log('Change detected - players.online');
+                return true;
+            }
+            if (newData.players.max !== oldData.players.max) {
+                console.log('Change detected - players.max');
+                return true;
+            }
+            if (newData.version !== oldData.version) {
+                console.log('Change detected - version');
+                return true;
+            }
+            if (!objectsEqual(newData.players.list, oldData.players.list)) {
+                console.log('Change detected - players.list');
+                return true;
+            }
+            if (!objectsEqual(newData.motd.raw, oldData.motd.raw)) {
+                console.log('Change detected - motd.raw');
+                return true;
+            }
+
+            return false; // No changes detected
+        }
+
+        // Function to fetch and display server information
+        async function getServerInfo() {
+            spinnerCircle.title = 'Loading server information...';
+            spinnerCircle.classList.remove('filling');
+            spinnerCircle.classList.add('loading');
+
+            if (animationTimer) clearInterval(animationTimer);
+            animationTimer = startAnimation(ANIMATION_CONFIG.loading.duration, spinnerCircle, ANIMATION_CONFIG.loading.segmentDuration);
+
+            try {
+                const response = await fetch(finalURL);
+                const data = await response.json();
+
+                // Check if data has changed
+                if (!isDataChanged(data, lastData)) {
+                    console.log('No change detected, skipping DOM update.');
+                    return;
+                } else {
+                    lastData = data
+                }
+
+                const {
+                    serverNameWrapper,
+                    serverName,
+                    motdValue,
+                    versionValue,
+                    onlineValue,
+                    playersOnline,
+                    playerList
+                } = {
+                    serverNameWrapper: document.querySelector('#serverNameWrapper'),
+                    serverName: document.querySelector('#serverName'),
+                    motdValue: document.querySelector('#motdValue'),
+                    versionValue: document.querySelector('#versionValue'),
+                    onlineValue: document.querySelector('#onlineValue'),
+                    playersOnline: document.querySelector('#playersOnline'),
+                    playerList: document.querySelector('#playerList')
+                };
+
+                serverNameWrapper.innerHTML = ''; // Clear any previous content
+
+                // Update for server status
+                onlineValue.textContent = data.online ? 'Yes' : 'No';
+                onlineValue.className = data.online ? 'online' : 'offline';
+
+                if (data.icon) {
+                    const img = document.createElement('img');
+                    img.src = data.icon;
+                    img.alt = 'Server Icon';
+                    serverNameWrapper.appendChild(img);
+                }
+
+                serverName.textContent = `${data.hostname}`;
+                serverName.title = `IP: ${data.ip} Port: ${data.port}`;
+                serverNameWrapper.appendChild(serverName);
+
+                if (data.online) {
+                    motdValue.innerHTML = formatMOTD(data);
+
+                    versionValue.textContent = data.version || 'Unknown';
+                    playersOnline.textContent = `${data.players.online || 0}/${data.players.max || 'Unknown'}`;
+
+                    populatePlayerList(data);
+                } else {
+                    // Server is offline
+                    motdValue.innerHTML = 'Server is offline';
+                    versionValue.textContent = 'Unknown';
+                    playersOnline.textContent = 'N/A';
+                    playerList.innerHTML = `<li>Server is offline</li>`;
+                }
+
+                serverNameWrapper.onclick = function () {
+                    let tempInput = document.createElement('input');
+                    tempInput.value = `${data.hostname}:${data.port}`;
+                    document.body.appendChild(tempInput);
+                    tempInput.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(tempInput);
+
+                    document.getElementById('copyMessage').style.display = 'block';
+
+                    setTimeout(() => {
+                        document.getElementById('copyMessage').style.display = 'none';
+                    }, 2000);
+                };
+                serverNameWrapper.style.cursor = 'pointer';
+
+            } catch (error) {
+                console.error('Error fetching server information:', error);
+                setOfflineState();
+            } finally {
+                if (animationTimer) clearInterval(animationTimer);
+                spinnerCircle.classList.remove('loading');
+                spinnerCircle.classList.add('filling');
+                spinnerCircle.title = 'Time until next update';
+                spinnerCircle.style.background = `conic-gradient(#3498db 0deg, #3498db 0deg, transparent 0deg)`;
+
+                // Start fill animation
+                animationTimer = startAnimation(ANIMATION_CONFIG.filling.duration, spinnerCircle, ANIMATION_CONFIG.filling.segmentDuration);
+            }
+        }
+
         window.onload = getServerInfo;
 
-        // Refresh server information every 90 seconds
-        setInterval(getServerInfo, 90000); // 90 seconds = 90000 milliseconds
+        setInterval(getServerInfo, 90000);
     </script>
 </body>
 
