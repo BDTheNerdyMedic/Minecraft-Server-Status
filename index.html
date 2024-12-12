@@ -271,6 +271,14 @@
         let animationTimer = null;
         let lastData = null;
 
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        function handleVisibilityChange() {
+            if (document.visibilityState === 'visible') {
+                checkCacheForRefresh();
+            }
+        }
+
         function startAnimation(duration, fillElement, segmentDuration) {
             let segments = duration / segmentDuration;
             let step = 360 / segments;
@@ -401,6 +409,24 @@
             }
 
             return false; // No changes detected
+        }
+
+        function checkCacheForRefresh() {
+            if (lastData  && lastData.debug) {
+                const now = Math.floor(Date.now() / 1000); // Current time in seconds
+                if (lastData.debug.cacheexpire <= now) {
+                    // Cache has expired, refresh immediately
+                    console.log('Cache expired - refreshing immediately');
+                    clearInterval(animationTimer);
+                    getServerInfo(); // This will restart the animations and fetch new data
+                } else {
+                    // If cache hasn't expired, continue with the timer from where it left off
+                    console.log('Cache not expired - waiting to refresh');
+                    if (!animationTimer) {
+                        animationTimer = startAnimation(ANIMATION_CONFIG.filling.duration, spinnerCircle, ANIMATION_CONFIG.filling.segmentDuration);
+                    }
+                }
+            }
         }
 
         // Function to fetch and display server information
